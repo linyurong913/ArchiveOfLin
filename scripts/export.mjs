@@ -4,7 +4,7 @@ import {mkdirSync,copyFileSync,writeFileSync} from 'node:fs';
 import {openLibrary,exportCatalogue} from '../db.mjs';
 const root=join(dirname(fileURLToPath(import.meta.url)),'..');const db=openLibrary(root);
 const target=join(root,'dist');mkdirSync(target,{recursive:true});
-for(const name of ['index.html','style.css','app.js','favicon.svg'])copyFileSync(join(root,'public',name),join(target,name));
+for(const name of ['index.html','style.css','app.js','favicon.svg','linbiao-white.svg'])copyFileSync(join(root,'public',name),join(target,name));
 const data=exportCatalogue(db,join(target,'catalog.json'));
 writeFileSync(join(target,'_headers'),"/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: no-referrer\n  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'\n");
 db.close();console.log(`已导出 ${data.items.length} 份公开书目到 dist。未导出管理页、数据库、密码或本机文件。`);
