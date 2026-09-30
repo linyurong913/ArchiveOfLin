@@ -12,7 +12,7 @@ test('library persistence, publication boundaries, upload versions and request s
  const child=spawn(process.execPath,[join(base,'server.mjs')],{env:{...process.env,LIBRARY_ROOT:root,PORT:'0'},stdio:['ignore','pipe','pipe']});
  t.after(async()=>{child.kill();await once(child,'exit').catch(()=>{});rmSync(root,{recursive:true,force:true});});
  const url=await new Promise((resolve,reject)=>{let s='';child.stdout.on('data',c=>{s+=c;const match=/LIBRARY_READY (http:\/\/127\.0\.0\.1:\d+)/.exec(s);if(match)resolve(match[1]);});child.on('error',reject);child.once('exit',code=>reject(new Error('server exited '+code)));});
- const get=path=>fetch(url+path);const initial=await(await get('/api/catalog')).json();assert.equal(initial.items.length,28);assert.equal(initial.categories.length,15);
+ const get=path=>fetch(url+path);const initial=await(await get('/api/catalog')).json();assert.equal(initial.items.length,28);assert.equal(initial.categories.length,14);
  const session=await(await get('/api/admin/session')).json();const headers={'Content-Type':'application/json','Origin':url,'X-Library-Token':session.token};
  let r=await fetch(url+'/api/admin/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'evil'})});assert.equal(r.status,403);
  r=await fetch(url+'/api/admin/items',{method:'POST',headers:{...headers,Origin:'https://untrusted.example'},body:JSON.stringify({title:'evil'})});assert.equal(r.status,403);

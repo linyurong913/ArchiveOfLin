@@ -3,18 +3,13 @@
     "source_name": "林办档案馆",
     "source_url": "https://drive.proton.me/urls/XDMZCZVY5R#bzT7SbWhYrgA",
     "captured_on": "2026-09-30",
-    "coverage": "首批书目；保留全部根目录分类，尚未完成整库递归编目。"
+    "coverage": "首批书目；按维护者选择展示 14 个分类，尚未完成整库递归编目。"
   },
   "categories": [
     {
       "id": "c01",
       "name": "913相关史学",
       "coverage": "partial"
-    },
-    {
-      "id": "c02",
-      "name": "彪丝创作",
-      "coverage": "pending"
     },
     {
       "id": "c03",
