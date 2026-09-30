@@ -1,27 +1,36 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {mkdtempSync,mkdirSync,copyFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,copyFileSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
-import {join,dirname} from 'node:path';
+import {join,dirname,resolve,basename} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {once} from 'node:events';
 import http from 'node:http';
 test('library persistence, publication boundaries, upload versions and request security',async t=>{
  const base=join(dirname(fileURLToPath(import.meta.url)),'..');const root=mkdtempSync(join(tmpdir(),'linban-test-'));mkdirSync(join(root,'data'));copyFileSync(join(base,'data','seed.json'),join(root,'data','seed.json'));
  const child=spawn(process.execPath,[join(base,'server.mjs')],{env:{...process.env,LIBRARY_ROOT:root,PORT:'0'},stdio:['ignore','pipe','pipe']});
- t.after(async()=>{child.kill();await once(child,'exit').catch(()=>{});rmSync(root,{recursive:true,force:true});});
+ t.after(async()=>{child.kill();await once(child,'exit').catch(()=>{});assert.equal(dirname(resolve(root)),resolve(tmpdir()));assert.ok(basename(root).startsWith('linban-test-'));rmSync(root,{recursive:true,force:true});});
  const url=await new Promise((resolve,reject)=>{let s='';child.stdout.on('data',c=>{s+=c;const match=/LIBRARY_READY (http:\/\/127\.0\.0\.1:\d+)/.exec(s);if(match)resolve(match[1]);});child.on('error',reject);child.once('exit',code=>reject(new Error('server exited '+code)));});
- const get=path=>fetch(url+path);const initial=await(await get('/api/catalog')).json();assert.equal(initial.items.length,28);assert.equal(initial.categories.length,14);
- const session=await(await get('/api/admin/session')).json();const headers={'Content-Type':'application/json','Origin':url,'X-Library-Token':session.token};
- let r=await fetch(url+'/api/admin/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'evil'})});assert.equal(r.status,403);
+ let cookie='';const get=path=>fetch(url+path,{headers:cookie?{Cookie:cookie}:{}});const initial=await(await get('/api/catalog')).json();assert.equal(initial.items.length,28);assert.equal(initial.categories.length,14);
+ for(const endpoint of ['session','catalog','history?id=LB-00001','sync'])assert.equal((await get('/api/admin/'+endpoint)).status,401);
+ for(const page of ['/admin','/admin.html','/%61dmin.html','/ADMIN.HTML']){const r=await fetch(url+page,{redirect:'manual'});assert.equal(r.status,303);assert.equal(r.headers.get('location'),'/login');}
+ assert.equal((await get('/login')).status,200);
+ for(const secret of ['/data/admin-auth.json','/data/admin-access-key.txt'])assert.equal((await get(secret)).status,404);
+ const key=readFileSync(join(root,'data','admin-access-key.txt'),'utf8').trim();
+ let r=await fetch(url+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://untrusted.example'},body:JSON.stringify({key})});assert.equal(r.status,403);
+ r=await fetch(url+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json',Origin:url},body:JSON.stringify({key:'wrong'})});assert.equal(r.status,401);
+ r=await fetch(url+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json',Origin:url},body:JSON.stringify({key})});assert.equal(r.status,200);const setCookie=r.headers.get('set-cookie');assert.match(setCookie,/HttpOnly/);assert.match(setCookie,/SameSite=Strict/);cookie=setCookie.split(';')[0];
+ const session=await(await get('/api/admin/session')).json();const headers={'Content-Type':'application/json','Origin':url,'X-Library-Token':session.token,Cookie:cookie};
+ r=await fetch(url+'/api/admin/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'evil'})});assert.equal(r.status,401);
+ r=await fetch(url+'/api/admin/items',{method:'POST',headers:{'Content-Type':'application/json',Origin:url,Cookie:cookie},body:JSON.stringify({title:'evil'})});assert.equal(r.status,403);
  r=await fetch(url+'/api/admin/items',{method:'POST',headers:{...headers,Origin:'https://untrusted.example'},body:JSON.stringify({title:'evil'})});assert.equal(r.status,403);
  const hostileHostStatus=await new Promise((resolve,reject)=>{const req=http.get(url+'/api/catalog',{headers:{Host:'attacker.example'}},res=>{res.resume();resolve(res.statusCode);});req.on('error',reject);});assert.equal(hostileHostStatus,403);
  const post=body=>fetch(url+'/api/admin/items',{method:'POST',headers,body:JSON.stringify(body)});
  r=await post({title:'测试书目',status:'draft',proton_url:'javascript:alert(1)'});assert.equal(r.status,400);
  r=await post({title:'测试书目',status:'draft',format:'TXT'});assert.equal(r.status,200);const item=await r.json();assert.equal(item.revision,1);
  assert.ok(!(await(await get('/api/catalog')).json()).items.some(i=>i.id===item.id));
- const upload=()=>fetch(url+'/api/admin/upload?id='+item.id+'&name='+encodeURIComponent('测试.txt'),{method:'POST',headers:{Origin:url,'X-Library-Token':session.token,'Content-Type':'application/octet-stream'},body:'hello archive'});
+ const upload=()=>fetch(url+'/api/admin/upload?id='+item.id+'&name='+encodeURIComponent('测试.txt'),{method:'POST',headers:{Origin:url,Cookie:cookie,'X-Library-Token':session.token,'Content-Type':'application/octet-stream'},body:'hello archive'});
  r=await upload();assert.equal(r.status,201);const file=await r.json();assert.equal(file.sha256.length,64);
  r=await get('/files/'+file.id);assert.equal(r.status,404);
  r=await upload();assert.equal(r.status,200);assert.equal((await r.json()).duplicate,true);
@@ -35,4 +44,9 @@ test('library persistence, publication boundaries, upload versions and request s
  await post({id:item.id,status:'archived'});assert.equal((await get('/files/'+file.id)).status,404);
  assert.equal((await get('/data/library.sqlite')).status,404);
  assert.equal((await get('/admin')).status,200);
+ r=await fetch(url+'/api/admin/logout',{method:'POST',headers});assert.equal(r.status,200);assert.match(r.headers.get('set-cookie'),/Max-Age=0/);
+ assert.equal((await get('/api/admin/catalog')).status,401);
+ assert.equal((await fetch(url+'/api/admin/items',{method:'POST',headers,body:JSON.stringify({title:'logged out'})})).status,401);
+ for(let n=0;n<8;n++){r=await fetch(url+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json',Origin:url},body:JSON.stringify({key:'wrong'})});assert.equal(r.status,401);}
+ r=await fetch(url+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json',Origin:url},body:JSON.stringify({key})});assert.equal(r.status,429);assert.ok(r.headers.get('retry-after'));
 });

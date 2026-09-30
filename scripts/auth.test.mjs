@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync,readFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join,dirname,resolve,basename} from 'node:path';
+import {createAdminAuth,resetAdminKey} from '../auth.mjs';
+test('admin sessions expire, bind to host, and revoke after key rotation or restart',t=>{
+ const root=mkdtempSync(join(tmpdir(),'linban-auth-'));
+ t.after(()=>{assert.equal(dirname(resolve(root)),resolve(tmpdir()));assert.ok(basename(root).startsWith('linban-auth-'));rmSync(root,{recursive:true,force:true});});
+ let time=1000000;const auth=createAdminAuth(root,{now:()=>time});
+ let key=readFileSync(join(root,'data','admin-access-key.txt'),'utf8').trim();const host='127.0.0.1:8787';
+ const login=()=>auth.login(key,host);const req=r=>({headers:{host,cookie:r.cookie.split(';')[0]}});
+ let result=login(),request=req(result);assert.ok(auth.session(request));
+ assert.equal(auth.session({headers:{...request.headers,host:'localhost:8787'}}),null);
+ time+=8*60*60*1000;assert.equal(auth.session(request),null);
+ result=login();request=req(result);resetAdminKey(root);assert.equal(auth.session(request),null);assert.equal(login().status,401);
+ key=readFileSync(join(root,'data','admin-access-key.txt'),'utf8').trim();result=login();request=req(result);assert.ok(auth.session(request));assert.equal(createAdminAuth(root).session(request),null);
+ for(let n=0;n<8;n++)assert.equal(auth.login('bad',host).status,401);
+ assert.equal(login().status,429);time+=15*60*1000;assert.equal(login().status,200);
+});

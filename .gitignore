@@ -3,6 +3,8 @@ storage/*
 !storage/.gitkeep
 data/*.sqlite*
 data/backups/
+data/admin-auth.json*
+data/admin-access-key.txt
 .env*
 dist/
 *.log

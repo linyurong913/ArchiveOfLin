@@ -4,12 +4,13 @@ import { dirname,join,extname,resolve } from 'node:path';
 import { mkdirSync,statSync,createReadStream,createWriteStream,existsSync,unlinkSync } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import { Transform } from 'node:stream';
-import { randomBytes,randomUUID,createHash } from 'node:crypto';
+import { randomUUID,createHash } from 'node:crypto';
 import { openLibrary,catalogue,saveItem } from './db.mjs';
+import {createAdminAuth} from './auth.mjs';
 const root=process.env.LIBRARY_ROOT||dirname(fileURLToPath(import.meta.url));
 const publicRoot=join(dirname(fileURLToPath(import.meta.url)),'public');
 const db=openLibrary(root);mkdirSync(join(root,'storage'),{recursive:true});
-const token=randomBytes(32).toString('hex');
+const auth=createAdminAuth(root);
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml'};
 function send(res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));}
 async function readJson(req){let n=0;const chunks=[];for await(const c of req){n+=c.length;if(n>1024*1024)throw new Error('提交内容过大。');chunks.push(c);}return JSON.parse(Buffer.concat(chunks).toString('utf8'));}
@@ -24,10 +25,20 @@ const server=http.createServer(async(req,res)=>{
   let url;try{url=new URL(req.url,'http://127.0.0.1');}catch{return send(res,400,{error:'无效地址'});}
   const host=req.headers.host||'';if(!/^127\.0\.0\.1:\d+$/.test(host)&&!/^localhost:\d+$/.test(host))return send(res,403,{error:'仅允许本机访问。'});
   const admin=url.pathname.startsWith('/api/admin/');
-  if(admin&&req.method!=='GET'&&(req.headers.origin!==`http://${host}`||req.headers['x-library-token']!==token))return send(res,403,{error:'管理会话无效，请刷新本机管理页。'});
   try{
+    if(url.pathname==='/api/auth/login'&&req.method==='POST'){
+      if(req.headers.origin!==`http://${host}`||!(req.headers['content-type']||'').startsWith('application/json'))return send(res,403,{error:'请从本机登录页面登录。'});
+      const {key}=await readJson(req),result=auth.login(key,host);
+      if(result.cookie)res.setHeader('Set-Cookie',result.cookie);
+      if(result.retryAfter)res.setHeader('Retry-After',String(result.retryAfter));
+      return send(res,result.status,result.error?{error:result.error}:{authenticated:true});
+    }
+    const session=admin?auth.session(req):null;
+    if(admin&&!session)return send(res,401,{error:'请先登录管理员后台。'});
+    if(admin&&!['GET','HEAD'].includes(req.method)&&(req.headers.origin!==`http://${host}`||req.headers['x-library-token']!==session.token))return send(res,403,{error:'管理会话无效，请重新登录。'});
+    if(url.pathname==='/api/admin/logout'&&req.method==='POST'){res.setHeader('Set-Cookie',auth.logout(req));return send(res,200,{authenticated:false});}
     if(url.pathname==='/api/catalog'&&req.method==='GET')return send(res,200,catalogue(db));
-    if(url.pathname==='/api/admin/session'&&req.method==='GET')return send(res,200,{token,local_only:true});
+    if(url.pathname==='/api/admin/session'&&req.method==='GET')return send(res,200,{token:session.token,local_only:true,expires_at:session.expires});
     if(url.pathname==='/api/admin/catalog'&&req.method==='GET')return send(res,200,catalogue(db,true));
     if(url.pathname==='/api/admin/items'&&req.method==='POST'){
       const data=await readJson(req);db.exec('BEGIN');try{const row=saveItem(db,data);db.exec('COMMIT');return send(res,200,row);}catch(e){db.exec('ROLLBACK');throw e;}
@@ -49,8 +60,10 @@ const server=http.createServer(async(req,res)=>{
     }
     if(!['GET','HEAD'].includes(req.method))return send(res,405,{error:'不支持此操作。'});
     if(url.pathname.startsWith('/api/'))return send(res,404,{error:'接口不存在。'});
-    const relative=url.pathname==='/'?'index.html':url.pathname==='/admin'?'admin.html':decodeURIComponent(url.pathname).replace(/^\/+/, '');
+    const relative=url.pathname==='/'?'index.html':url.pathname==='/admin'?'admin.html':url.pathname==='/login'?'login.html':decodeURIComponent(url.pathname).replace(/^\/+/, '');
+    if(relative.includes(':')||relative.includes('\0')||relative.split(/[\\/]/).some(part=>/[. ]$/.test(part)))return send(res,404,{error:'页面不存在。'});
     const path=resolve(publicRoot,relative);if(!path.startsWith(resolve(publicRoot)+ '/')&&!path.startsWith(resolve(publicRoot)+'\\'))return send(res,403,{error:'禁止访问。'});
+    if(path.toLowerCase()===resolve(publicRoot,'admin.html').toLowerCase()&&!auth.session(req)){res.writeHead(303,{Location:'/login'});return res.end();}
     if(!existsSync(path)||!statSync(path).isFile())return send(res,404,{error:'页面不存在。'});return serveFile(req,res,path,types[extname(path)]||'application/octet-stream');
   }catch(e){if(!res.headersSent&&!res.destroyed)send(res,400,{error:e.message||'操作失败'});}
 });

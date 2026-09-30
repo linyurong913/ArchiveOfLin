@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.mjs",
     "export": "node scripts/export.mjs",
-    "test": "node --test scripts/integration.test.mjs"
+    "test": "node --test scripts/*.test.mjs"
   },
   "engines": { "node": ">=24.0.0" }
 }
