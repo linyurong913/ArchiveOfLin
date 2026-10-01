@@ -1,5 +1,7 @@
 param([Parameter(Mandatory=$true)][string]$NodePath,[Parameter(Mandatory=$true)][string]$ProtonCliPath,[string]$ProxyUrl)
 $ErrorActionPreference='Stop'
+$OutputEncoding=[System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding=$OutputEncoding
 if($ProxyUrl){$env:HTTPS_PROXY=$ProxyUrl}
 $env:PROTON_DRIVE_CLI=$ProtonCliPath
 $logDir=Join-Path $PSScriptRoot '../data/proton-sync'
