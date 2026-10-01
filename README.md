@@ -4,6 +4,8 @@
 
 仓库：<https://github.com/linyurong913/ArchiveOfLin>
 
+公网目录：<https://linyurong913.github.io/ArchiveOfLin/>
+
 本项目仅供学术交流与研究。收录、引用或链接的内容不代表网站创作者、维护者或支持者的政治立场。版权、纠错或其他权益问题，请联系 **linyurong@proton.me**，提供条目和相关说明，以便核查、更正或移除。
 
 ## 当前状态

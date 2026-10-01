@@ -49,7 +49,7 @@ export function catalogue(db,admin=false) {
   const meta=Object.fromEntries(db.prepare("SELECT * FROM meta WHERE key!='seeded'").all().map(r=>[r.key,JSON.parse(r.value)]));
   const items=db.prepare(`SELECT i.*,c.name AS category FROM items i LEFT JOIN categories c ON c.id=i.category_id ${admin?'':"WHERE i.status='published'"} ORDER BY i.id`).all();
   for(const item of items){item.files=db.prepare('SELECT id,original_name,bytes,mime,sha256,created_at FROM files WHERE item_id=? ORDER BY created_at DESC').all(item.id);}
-  return {schema_version:1,meta,categories:db.prepare('SELECT * FROM categories ORDER BY id').all(),items};
+  return {schema_version:1,meta,categories:db.prepare(`SELECT * FROM categories ${admin?'':"WHERE coverage!='retired'"} ORDER BY id`).all(),items};
 }
 export function exportCatalogue(db,path) {
   const data=catalogue(db);for(const item of data.items)item.files=[];

@@ -18,9 +18,9 @@ const excluded=new Set(['彪丝创作']);
 const privateDir=join(root,'data','proton-sync');mkdirSync(privateDir,{recursive:true});
 const lock=join(privateDir,'running.lock');
 let handle;
-try{handle=openSync(lock,'wx');}catch{throw Error('Sync already running, or stale lock requires inspection.');}
+try{handle=openSync(lock,'wx');writeFileSync(handle,JSON.stringify({pid:process.pid,startedAt:new Date().toISOString()}));}catch{throw Error('Sync already running, or stale lock requires inspection.');}
 const statePath=join(privateDir,'state.json');
-const state=existsSync(statePath)?JSON.parse(readFileSync(statePath,'utf8')):{nodes:{}};
+let state;
 const persist=()=>{writeFileSync(statePath+'.tmp',JSON.stringify(state,null,2));renameSync(statePath+'.tmp',statePath);};
 function call(args){
   try{return JSON.parse(execFileSync(cli,[...cliPrefix,...args,'--json'],{encoding:'utf8',timeout:180000,maxBuffer:32*1024*1024,windowsHide:true,stdio:['ignore','pipe','pipe']}));}
@@ -35,6 +35,7 @@ function validateShare(access,password){
 }
 let db;
 try{
+  state=existsSync(statePath)?JSON.parse(readFileSync(statePath,'utf8')):{nodes:{}};
   const share=call(['sharing','status',source]).urlAccess;
   if(!share?.customPassword)throw Error('The library folder must have a password.');
   // Verify the exact intended public library before making any changes.
@@ -42,6 +43,7 @@ try{
   const password=share.customPassword;
   const passwordTag=createHash('sha256').update(password).digest('hex');
   const files=[];
+  const topFolders=new Set();
   function walk(path,parts=[]){
     const children=call(['filesystem','list',path]);
     if(!Array.isArray(children))throw Error('Invalid folder response.');
@@ -49,6 +51,7 @@ try{
       if(!n.name?.ok)throw Error('Cannot decrypt a name; refusing an incomplete scan.');
       const name=n.name.value;
       if(parts.length===0&&excluded.has(name))continue;
+      if(parts.length===0&&n.type==='folder')topFolders.add(name);
       const childPath=path+'/'+segment(name);
       if(n.type==='folder')walk(childPath,[...parts,name]);
       else if(n.type==='file')files.push({uid:n.uid,name,parts,path:childPath,bytes:n.activeRevision?.claimedSize??n.totalStorageSize,revision:n.activeRevision?.uid||'',shared:n.isSharedByUrl});
@@ -62,6 +65,10 @@ try{
   const backup=join(root,'data','backups',`pre-proton-${new Date().toISOString().slice(0,10)}.sqlite`);
   if(!existsSync(backup))db.prepare('VACUUM INTO ?').run(backup);
   const categories=db.prepare('SELECT * FROM categories').all();
+  for(const name of topFolders)if(!categories.some(c=>c.name===name)){
+    const c={id:'p'+createHash('sha256').update(name).digest('hex').slice(0,10),name};
+    db.prepare('INSERT OR IGNORE INTO categories(id,name,coverage) VALUES(?,?,?)').run(c.id,name,'complete');categories.push(c);
+  }
   const initial=db.prepare('SELECT * FROM items').all();
   const claimed=new Set(Object.values(state.nodes).map(n=>n.itemId));
   let changed=0;
@@ -99,8 +106,10 @@ try{
   const meta={coverage:'已同步指定 Proton 文库，排除彪丝创作；不含正文索引。',sync_mode:'proton'};
   if(changed||!state.lastSuccess){meta.captured_on=now.slice(0,10);meta.synced_at=now;}
   for(const [k,v] of Object.entries(meta))db.prepare('INSERT INTO meta VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(k,JSON.stringify(v));
-  const eligible=categories.filter(c=>files.some(f=>f.parts[0]===c.name));
-  for(const c of eligible)db.prepare("UPDATE categories SET coverage='complete' WHERE id=?").run(c.id);
+  for(const c of categories){
+    if(topFolders.has(c.name))db.prepare("UPDATE categories SET coverage='complete' WHERE id=?").run(c.id);
+    else if(!db.prepare("SELECT id FROM items WHERE category_id=? AND status='published' LIMIT 1").get(c.id))db.prepare("UPDATE categories SET coverage='retired' WHERE id=?").run(c.id);
+  }
   state.lastSuccess=now;persist();db.close();db=null;
   execFileSync(process.execPath,[join(codeRoot,'scripts','export.mjs')],{cwd:root,stdio:'inherit',windowsHide:true});
   console.log(`SYNC_OK files=${files.length} changed=${changed}`);
