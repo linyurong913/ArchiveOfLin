@@ -54,10 +54,7 @@ const server=http.createServer(async(req,res)=>{
       try{await pipeline(req,counter,createWriteStream(path));if(!bytes)throw new Error('不能上传空文件。');const sha=hash.digest('hex');const same=db.prepare('SELECT id FROM files WHERE item_id=? AND sha256=?').get(id,sha);if(same){unlinkSync(path);return send(res,200,{id:same.id,duplicate:true,message:'该文件已存在，无需重复保存。'});}const now=new Date().toISOString();db.exec('BEGIN');try{db.prepare('INSERT INTO files VALUES(?,?,?,?,?,?,?,?)').run(fileId,id,sha,storageKey,name,bytes,allow[ext],now);saveItem(db,{id});db.prepare('INSERT INTO sync_jobs VALUES(?,?,?,?,?,?)').run(randomUUID(),id,'upload','not_connected','文件已保存到本机；尚未连接 Proton 账户。',now);db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}return send(res,201,{id:fileId,sha256:sha,bytes,message:'文件已保存到本机，尚未上传 Proton。'});}catch(e){if(existsSync(path))unlinkSync(path);throw e;}
     }
     if(url.pathname==='/api/admin/sync'&&req.method==='GET')return send(res,200,{connected:false,message:'共享链接不能提供账户级双向同步授权。',jobs:db.prepare('SELECT * FROM sync_jobs ORDER BY created_at DESC').all()});
-    if(url.pathname.startsWith('/files/')&&['GET','HEAD'].includes(req.method)){
-      const f=db.prepare("SELECT f.* FROM files f JOIN items i ON i.id=f.item_id WHERE f.id=? AND i.status='published'").get(url.pathname.slice(7));if(!f)return send(res,404,{error:'文件未发布或不存在。'});
-      const inline=f.mime==='application/pdf'||f.mime.startsWith('text/plain');return serveFile(req,res,join(root,'storage',f.storage_key),f.mime,{'Content-Disposition':`${inline?'inline':'attachment'}; filename*=UTF-8''${encodeURIComponent(f.original_name)}`});
-    }
+    if(url.pathname.startsWith('/files/'))return send(res,404,{error:'本站不提供文献下载，请使用条目的 Proton 分享链接。'});
     if(!['GET','HEAD'].includes(req.method))return send(res,405,{error:'不支持此操作。'});
     if(url.pathname.startsWith('/api/'))return send(res,404,{error:'接口不存在。'});
     const relative=url.pathname==='/'?'index.html':url.pathname==='/admin'?'admin.html':url.pathname==='/login'?'login.html':decodeURIComponent(url.pathname).replace(/^\/+/, '');

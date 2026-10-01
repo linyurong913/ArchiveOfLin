@@ -3,6 +3,7 @@ storage/*
 !storage/.gitkeep
 data/*.sqlite*
 data/backups/
+data/proton-sync/
 data/admin-auth.json*
 data/admin-access-key.txt
 .env*

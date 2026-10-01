@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {execFileSync} from 'node:child_process';
+const script=join(dirname(fileURLToPath(import.meta.url)),'proton-sync.mjs');
+test('Proton sync preserves identity, gates password links, excludes folders and leaves published snapshot intact on failure',t=>{
+ const root=mkdtempSync(join(tmpdir(),'proton-sync-test-'));
+ t.after(()=>rmSync(root,{recursive:true,force:true}));
+ mkdirSync(join(root,'data'));writeFileSync(join(root,'data','seed.json'),JSON.stringify({meta:{source_url:'https://drive.proton.me/urls/XDMZCZVY5R#bzT7SbWhYrgA'},categories:[],items:[{id:'LB-00001',title:'人工标题',author:'已核作者',original_name:'sample.pdf',status:'published'}]}));
+ const driver=join(root,'cli.cjs');
+ writeFileSync(driver,`const a=process.argv.slice(2);const mode=process.env.FIXTURE_MODE;const base='/my-files/林办档案馆';let r;
+ if(a[0]==='filesystem'){
+  if(a[2]!==base)throw Error('excluded folder visited');
+  if(mode==='scan-error')throw Error('network failed');
+  r=mode==='missing'?[]:[{type:'folder',name:{ok:true,value:'彪丝创作'}},{type:'file',uid:'stable-node',name:{ok:true,value:mode==='rename'?'renamed.pdf':'sample.pdf'},activeRevision:{claimedSize:1234,uid:'revision1'},isSharedByUrl:false}];
+ }else r={urlAccess:{role:'viewer',customPassword:mode==='bad-password'&&a[1]==='set-url'?'wrong':'fixture-secret',url:a[1]==='status'?'https://drive.proton.me/urls/XDMZCZVY5R#bzT7SbWhYrgA':'https://drive.proton.me/urls/TESTFILE#fragment'}};
+ process.stdout.write(JSON.stringify(r));`);
+ const run=mode=>execFileSync(process.execPath,[script],{env:{...process.env,LIBRARY_ROOT:root,PROTON_DRIVE_CLI:process.execPath,PROTON_DRIVE_CLI_PREFIX:JSON.stringify([driver]),FIXTURE_MODE:mode},stdio:'pipe'});
+ const catalog=()=>JSON.parse(readFileSync(join(root,'dist','catalog.json'),'utf8'));
+ run('normal');let c=catalog();assert.equal(c.items.length,1);assert.equal(c.items[0].id,'LB-00001');assert.equal(c.items[0].author,'已核作者');assert.equal(c.items[0].link_scope,'file');assert.ok(!JSON.stringify(c).includes('fixture-secret'));
+ run('rename');c=catalog();assert.equal(c.items.length,1);assert.equal(c.items[0].id,'LB-00001');assert.equal(c.items[0].title,'人工标题');assert.equal(c.items[0].original_name,'renamed.pdf');
+ const before=readFileSync(join(root,'dist','catalog.json'),'utf8');
+ assert.throws(()=>run('scan-error'));assert.equal(readFileSync(join(root,'dist','catalog.json'),'utf8'),before);
+ assert.throws(()=>run('bad-password'));assert.equal(readFileSync(join(root,'dist','catalog.json'),'utf8'),before);
+ run('missing');assert.equal(catalog().items.length,0);
+ run('normal');assert.equal(catalog().items[0].id,'LB-00001');
+});

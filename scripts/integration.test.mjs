@@ -36,9 +36,8 @@ test('library persistence, publication boundaries, upload versions and request s
  r=await upload();assert.equal(r.status,200);assert.equal((await r.json()).duplicate,true);
  await post({id:item.id,title:'已发布测试书目',status:'published'});
  assert.ok((await(await get('/api/catalog')).json()).items.some(i=>i.id===item.id));
- r=await get('/files/'+file.id);assert.equal(await r.text(),'hello archive');
- r=await fetch(url+'/files/'+file.id,{headers:{Range:'bytes=0-4'}});assert.equal(r.status,206);assert.equal(await r.text(),'hello');
- r=await fetch(url+'/files/'+file.id,{headers:{Range:'bytes=999-1000'}});assert.equal(r.status,416);
+ r=await get('/files/'+file.id);assert.equal(r.status,404);
+ r=await fetch(url+'/files/'+file.id,{headers:{Range:'bytes=0-4'}});assert.equal(r.status,404);
  const history=await(await get('/api/admin/history?id='+item.id)).json();assert.equal(history.length,3);assert.equal(JSON.parse(history[2].snapshot).title,'测试书目');
  const sync=await(await get('/api/admin/sync')).json();assert.equal(sync.connected,false);assert.equal(sync.jobs[0].state,'not_connected');
  await post({id:item.id,status:'archived'});assert.equal((await get('/files/'+file.id)).status,404);
