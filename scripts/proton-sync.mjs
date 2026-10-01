@@ -68,7 +68,7 @@ try{
   for(const [index,f] of files.entries()){
     let previous=state.nodes[f.uid];
     let access;
-    // Check on every run so revoked or changed links are repaired, not silently reused.
+    // Recheck permissions daily; immediately repair revoked links and folder-password changes.
     const cached=previous&&f.shared&&previous.passwordTag===passwordTag&&Date.now()-Date.parse(previous.verifiedAt||'1970-01-01')<86400000;
     if(cached)access={url:previous.url,role:'viewer',customPassword:password};
     else if(f.shared)access=call(['sharing','status',f.path]).urlAccess;

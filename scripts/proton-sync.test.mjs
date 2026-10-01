@@ -2,13 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
-import {join,dirname} from 'node:path';
+import {join,dirname,resolve,basename} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
 const script=join(dirname(fileURLToPath(import.meta.url)),'proton-sync.mjs');
 test('Proton sync preserves identity, gates password links, excludes folders and leaves published snapshot intact on failure',t=>{
  const root=mkdtempSync(join(tmpdir(),'proton-sync-test-'));
- t.after(()=>rmSync(root,{recursive:true,force:true}));
+ t.after(()=>{assert.equal(dirname(resolve(root)),resolve(tmpdir()));assert.ok(basename(root).startsWith('proton-sync-test-'));rmSync(root,{recursive:true,force:true});});
  mkdirSync(join(root,'data'));writeFileSync(join(root,'data','seed.json'),JSON.stringify({meta:{source_url:'https://drive.proton.me/urls/XDMZCZVY5R#bzT7SbWhYrgA'},categories:[],items:[{id:'LB-00001',title:'人工标题',author:'已核作者',original_name:'sample.pdf',status:'published'}]}));
  const driver=join(root,'cli.cjs');
  writeFileSync(driver,`const a=process.argv.slice(2);const mode=process.env.FIXTURE_MODE;const base='/my-files/林办档案馆';let r;
