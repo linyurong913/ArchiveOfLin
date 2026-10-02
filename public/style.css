@@ -25,10 +25,10 @@
 @media(max-width:720px){.brand .brand-wordmark small{font-size:11px;gap:1.5px;letter-spacing:-.35px}.pagination{gap:8px}.pagination .secondary{padding:9px 10px;font-size:12px}.pagination span{font-size:11px}}
 
 /* Full-width school motto: tall wood-type proportions collapse on scroll. */
-:root{--motto-progress:0;--topbar-height:100px}
+:root{--motto-progress:0;--topbar-height:100px;--header-paper:#f0e8d7}
 html{scroll-padding-top:calc(var(--topbar-height) + 82px);overflow-anchor:none}
-.topbar{position:sticky;top:0;z-index:30}
-.motto{position:sticky;top:var(--topbar-height);z-index:25;height:calc(190px - 118px * var(--motto-progress));margin:0;background:#f0e8d7;border-top:1px solid #d8c5a9;border-bottom:3px solid var(--accent);color:#942f27;overflow:hidden}
+.topbar{position:sticky;top:0;z-index:30;background:var(--header-paper);border-bottom:0}
+.motto{position:sticky;top:var(--topbar-height);z-index:25;height:calc(190px - 118px * var(--motto-progress));margin:0;background:var(--header-paper);border:0;color:#942f27;overflow:hidden}
 .motto-inner{max-width:1600px;margin:auto;padding:0 4.5%;height:100%;display:flex;align-items:center;gap:40px}
 .motto-caption{font-family:SimSun,"Songti SC",serif;font-size:12px;letter-spacing:4px;writing-mode:vertical-rl;flex-shrink:0;color:#82634e}
 .motto p{flex:1;display:flex;justify-content:space-around;align-items:center;gap:18px;margin:0;font-family:"Songti SC",SimSun,"Noto Serif CJK SC",serif;font-size:clamp(38px,6.2vw,82px);font-weight:900;line-height:1;letter-spacing:6px;transform:scaleY(calc(1.42 - .72 * var(--motto-progress)));transform-origin:center;text-shadow:.8px 0 currentColor,-.8px 0 currentColor;-webkit-text-stroke:.8px currentColor}
