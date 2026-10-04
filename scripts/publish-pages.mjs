@@ -3,6 +3,7 @@ import {execFileSync} from 'node:child_process';
 import {readFileSync} from 'node:fs';
 import {dirname,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {publicPaths} from './seo.mjs';
 const root=join(dirname(fileURLToPath(import.meta.url)),'..');
 const repo='linyurong913/ArchiveOfLin';
 const gh=process.env.GITHUB_CLI||'gh';
@@ -19,10 +20,9 @@ if(process.argv.includes('--check')){console.log('GITHUB_ACCESS_OK');process.exi
 const head=refs.find(r=>r.ref==='refs/heads/gh-pages')?.object.sha;
 const parent=head?api(`git/commits/${head}`):null;
 const tree=[];
-for(const name of ['index.html','style.css','app.js','favicon.svg','linbiao-white.svg','catalog.json']){
-  const content=readFileSync(join(root,'dist',name));
-  const blob=api('git/blobs',{content:content.toString('base64'),encoding:'base64'});
-  tree.push({path:name,mode:'100644',type:'blob',sha:blob.sha});
+for(const name of publicPaths(data)){
+  const content=readFileSync(join(root,'dist',name),'utf8');
+  tree.push({path:name,mode:'100644',type:'blob',content});
 }
 tree.push({path:'.nojekyll',mode:'100644',type:'blob',content:''});
 const built=api('git/trees',{tree});
