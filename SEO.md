@@ -12,6 +12,8 @@
 
 ## 仍需账号所有者完成的 Google 验证
 
+已按维护者提供的 HTML 文件配置验证：`https://linyurong913.github.io/ArchiveOfLin/googlecafbab5c34e387e5.html`。源文件保存在 `public/`，已加入静态导出和发布允许列表，后续自动同步会持续保留。Google 页面请选择对应的“HTML 文件”验证方式，网站验证通过后再提交下述站点地图。下列 HTML 标记步骤仅供将来更换验证方式时参考。
+
 1. 登录 https://search.google.com/search-console/welcome 。
 2. 添加“网址前缀”资源，精确填写 `https://linyurong913.github.io/ArchiveOfLin/`。不要选需要 DNS 的“网域”资源。
 3. 选择“HTML 标记”，将 Google 提供的 `<meta name="google-site-verification" content="…">` 加入 `public/index.html` 的 head。它是公开验证标记，不是 Google 账户密码。

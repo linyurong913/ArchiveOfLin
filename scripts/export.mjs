@@ -5,7 +5,7 @@ import {openLibrary,exportCatalogue} from '../db.mjs';
 import {exportSeo} from './seo.mjs';
 const codeRoot=join(dirname(fileURLToPath(import.meta.url)),'..');const root=process.env.LIBRARY_ROOT||codeRoot;const db=openLibrary(root);
 const target=join(root,'dist');mkdirSync(target,{recursive:true});
-for(const name of ['index.html','style.css','app.js','favicon.svg','linbiao-white.svg'])copyFileSync(join(codeRoot,'public',name),join(target,name));
+for(const name of ['index.html','style.css','app.js','favicon.svg','linbiao-white.svg','googlecafbab5c34e387e5.html'])copyFileSync(join(codeRoot,'public',name),join(target,name));
 const data=exportCatalogue(db,join(target,'catalog.json'));
 exportSeo(target,data);
 writeFileSync(join(target,'_headers'),"/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: no-referrer\n  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'\n");
