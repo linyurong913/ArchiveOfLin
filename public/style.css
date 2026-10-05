@@ -25,6 +25,18 @@
 @media(max-width:720px){.brand .brand-wordmark small{font-size:11px;gap:1.5px;letter-spacing:-.35px}.pagination{gap:8px}.pagination .secondary{padding:9px 10px;font-size:12px}.pagination span{font-size:11px}}
 
 /* Full-width school motto: tall wood-type proportions collapse on scroll. */
+.sponsor-bar{background:#942f27;color:#fff4e3}
+.sponsor-bar-inner{max-width:1600px;margin:auto;padding:18px 4.5%;display:flex;align-items:center;gap:24px}
+.sponsor-label{flex-shrink:0;font-family:"Songti SC",SimSun,serif;font-size:17px;font-weight:700;letter-spacing:3px;border-right:1px solid #fff4e34d;padding-right:24px}
+.sponsor-bar p{flex:1;min-width:0;margin:0;font-size:13px;line-height:1.9;overflow-wrap:anywhere}
+.sponsor-bar p>span{display:inline-block;margin-left:10px}
+.sponsor-bar strong{font-weight:650}
+.sponsor-bar a{flex-shrink:0;font-size:13px;border:1px solid #fff4e380;border-radius:2px;padding:9px 14px;white-space:nowrap}
+.sponsor-bar a:hover{background:#fff4e31a}
+.sponsor-bar a:focus-visible{outline-color:#fff4e3}
+.support-card .support-thanks{margin-top:16px;color:#fff4e3}
+.support-card .support-note{margin-top:12px;font-size:12px;color:#b9ccd9}
+@media(max-width:720px){.sponsor-bar-inner{padding:18px 20px;gap:10px 16px;flex-wrap:wrap}.sponsor-label{font-size:15px;border:0;padding:0}.sponsor-bar p{flex-basis:100%;order:3;font-size:12px}.sponsor-bar p>span{display:block;margin-left:0}.sponsor-bar a{margin-left:auto;padding:7px 10px;font-size:12px}}
 :root{--motto-progress:0;--topbar-height:100px;--header-paper:#f0e8d7}
 html{scroll-padding-top:calc(var(--topbar-height) + 82px);overflow-anchor:none}
 .topbar{position:sticky;top:0;z-index:30;background:var(--header-paper);border-bottom:0}
