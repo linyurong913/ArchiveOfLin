@@ -1,6 +1,6 @@
-'use strict';
+import {createSearch} from './search.mjs';
 const $=id=>document.getElementById(id);
-const state={data:null,category:'',format:'',query:'',sort:'id',view:'items',page:1};
+const state={data:null,search:null,category:'',format:'',query:'',sort:'id',view:'items',page:1};
 const PAGE_SIZE=10;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safeUrl=s=>{try{const u=new URL(s);return u.protocol==='https:'&&u.hostname==='drive.proton.me'?u.href:'';}catch{return '';}};
@@ -10,7 +10,8 @@ function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTi
 async function copy(text){try{await navigator.clipboard.writeText(text);toast('已复制，可在原文库中定位。');}catch{toast('复制未成功，请在详情中手动选取文件名。');}}
 function categoryName(){return state.data.categories.find(c=>c.id===state.category)?.name||'全部文献';}
 function matches(text){return normalize(state.query).split(/\s+/).filter(Boolean).every(t=>normalize(text).includes(t));}
-function filtered(){let list=state.data.items.filter(i=>(!state.category||i.category_id===state.category)&&(!state.format||i.format===state.format)&&matches([i.title,i.author,i.original_name,i.source_path,i.category,i.description].join(' ')));if(state.sort==='title')list.sort((a,b)=>a.title.localeCompare(b.title,'zh-CN'));if(state.sort==='updated')list.sort((a,b)=>b.updated_at.localeCompare(a.updated_at));return list;}
+function filtered(){if(!state.search)state.search=createSearch(state.data.items);const allowed=i=>(!state.category||i.category_id===state.category)&&(!state.format||i.format===state.format);let list=(state.query.trim()?state.search(state.query):state.data.items).filter(allowed);if(state.sort==='title')list.sort((a,b)=>a.title.localeCompare(b.title,'zh-CN'));if(state.sort==='updated')list.sort((a,b)=>b.updated_at.localeCompare(a.updated_at));return list;}
+function highlighted(value){const raw=String(value??'');const text=normalize(raw);const ranges=[];for(const term of normalize(state.query).split(/\s+/).filter(Boolean)){let from=0,index;while((index=text.indexOf(term,from))!==-1){ranges.push([index,index+term.length]);from=index+term.length;}}if(!ranges.length)return esc(raw);ranges.sort((a,b)=>a[0]-b[0]||b[1]-a[1]);const merged=[];for(const range of ranges){const previous=merged.at(-1);if(previous&&range[0]<=previous[1])previous[1]=Math.max(previous[1],range[1]);else merged.push(range);}let output='',cursor=0;for(const [start,end] of merged){output+=esc(raw.slice(cursor,start))+`<mark>${esc(raw.slice(start,end))}</mark>`;cursor=end;}return output+esc(raw.slice(cursor));}
 function updateLocation(){const u=new URL(location.href);for(const [key,val]of Object.entries({q:state.query,category:state.category,format:state.format,view:state.view==='folders'?'folders':'',sort:state.sort==='id'?'':state.sort,page:state.view==='items'&&state.page>1?String(state.page):''}))val?u.searchParams.set(key,val):u.searchParams.delete(key);history.replaceState(null,'',u);}
 function setCategory(id){state.category=id;state.view='items';state.page=1;render();}
 function render(){
@@ -30,12 +31,12 @@ function render(){
     const pages=Math.max(1,Math.ceil(list.length/PAGE_SIZE));
     state.page=Math.min(Math.max(1,state.page),pages);
     const start=(state.page-1)*PAGE_SIZE;
-    $('result-summary').textContent=`找到 ${list.length} 份资料${list.length?' · 显示 '+(start+1)+'–'+Math.min(start+PAGE_SIZE,list.length)+' 份':''}${state.query?' · 书目检索，不含文件正文':''}`;
+    $('result-summary').textContent=`找到 ${list.length} 份资料${list.length?' · 显示 '+(start+1)+'–'+Math.min(start+PAGE_SIZE,list.length)+' 份':''}${state.query?' · 按相关性排序 · 书目检索，不含文件正文':''}`;
     $('pagination').hidden=list.length===0;
     $('page-status').textContent=`第 ${state.page} / ${pages} 页 · 每页 10 篇`;
     $('previous-page').disabled=state.page<=1;
     $('next-page').disabled=state.page>=pages;
-    $('results').innerHTML=list.length?list.slice(start,start+PAGE_SIZE).map(i=>`<article class="record"><div class="file-icon ${esc(i.format.toLowerCase())}" aria-hidden="true">${esc(i.format||'FILE')}</div><div><div class="record-meta"><span class="code">${esc(i.id)}</span><span>／</span><span>${esc(i.category||'根目录')}</span></div><h2><button class="title-button" data-item="${esc(i.id)}">${esc(i.title)}</button></h2><p class="author">${esc(i.author||'作者待核')}${i.year?' · '+esc(i.year):''}</p><p class="path">${esc(i.source_path||'本机录入')}</p></div><div class="record-action"><button data-item="${esc(i.id)}">查看文献</button><span>${esc(i.size_label||i.format)}</span></div></article>`).join(''):`<div class="empty"><h2>${state.category&&!state.query?'此分类尚无符合条件的已编目条目':'没有找到匹配的文献'}</h2><p>可清除筛选，或前往 Proton 原文库查看。<br>未编目不代表原文件夹为空。</p><button class="secondary" id="clear-filters">查看全部书目</button></div>`;
+    $('results').innerHTML=list.length?list.slice(start,start+PAGE_SIZE).map(i=>`<article class="record"><div class="file-icon ${esc(i.format.toLowerCase())}" aria-hidden="true">${esc(i.format||'FILE')}</div><div><div class="record-meta"><span class="code">${esc(i.id)}</span><span>／</span><span>${esc(i.category||'根目录')}</span></div><h2><button class="title-button" data-item="${esc(i.id)}">${highlighted(i.title)}</button></h2><p class="author">${highlighted(i.author||'作者待核')}${i.year?' · '+esc(i.year):''}</p><p class="path">${esc(i.source_path||'本机录入')}</p></div><div class="record-action"><button data-item="${esc(i.id)}">查看文献</button><span>${esc(i.size_label||i.format)}</span></div></article>`).join(''):`<div class="empty"><h2>${state.category&&!state.query?'此分类尚无符合条件的已编目条目':'没有找到匹配的文献'}</h2><p>可清除筛选，或前往 Proton 原文库查看。<br>未编目不代表原文件夹为空。</p><button class="secondary" id="clear-filters">查看全部书目</button></div>`;
   }
   updateLocation();
 }

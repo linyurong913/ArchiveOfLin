@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "dependencies": { "fuse.js": "7.5.0" },
   "scripts": {
     "start": "node server.mjs",
     "export": "node scripts/export.mjs",

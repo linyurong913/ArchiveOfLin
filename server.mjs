@@ -11,7 +11,7 @@ const root=process.env.LIBRARY_ROOT||dirname(fileURLToPath(import.meta.url));
 const publicRoot=join(dirname(fileURLToPath(import.meta.url)),'public');
 const db=openLibrary(root);mkdirSync(join(root,'storage'),{recursive:true});
 const auth=createAdminAuth(root);
-const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml'};
+const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml'};
 function send(res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));}
 async function readJson(req){let n=0;const chunks=[];for await(const c of req){n+=c.length;if(n>1024*1024)throw new Error('提交内容过大。');chunks.push(c);}return JSON.parse(Buffer.concat(chunks).toString('utf8'));}
 function serveFile(req,res,path,mime,extra={}){
