@@ -17,6 +17,21 @@ const source='/my-files/林办档案馆';
 const excluded=new Set(['彪丝创作']);
 const privateDir=join(root,'data','proton-sync');mkdirSync(privateDir,{recursive:true});
 const lock=join(privateDir,'running.lock');
+function staleLockReason(){
+  if(!existsSync(lock))return null;
+  try{
+    const prior=JSON.parse(readFileSync(lock,'utf8'));
+    if(!Number.isSafeInteger(prior.pid)||prior.pid<=0)return 'invalid owner';
+    try{process.kill(prior.pid,0);return null;}
+    catch(error){return error?.code==='ESRCH'?'owner process is gone':null;}
+  }catch{return 'invalid contents';}
+}
+const staleReason=staleLockReason();
+if(staleReason){
+  const recovered=`${lock}.stale-${Date.now()}`;
+  renameSync(lock,recovered);
+  console.warn(`Recovered stale sync lock (${staleReason}).`);
+}
 let handle;
 try{handle=openSync(lock,'wx');writeFileSync(handle,JSON.stringify({pid:process.pid,startedAt:new Date().toISOString()}));}catch{throw Error('Sync already running, or stale lock requires inspection.');}
 const statePath=join(privateDir,'state.json');

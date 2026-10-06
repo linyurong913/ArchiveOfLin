@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,existsSync,readdirSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,dirname,resolve,basename} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -30,4 +30,7 @@ test('Proton sync preserves identity, gates password links, excludes folders and
  assert.throws(()=>run('bad-password'));assert.equal(readFileSync(join(root,'dist','catalog.json'),'utf8'),before);
  run('missing');assert.equal(catalog().items.length,0);
  run('normal');assert.equal(catalog().items[0].id,'LB-00001');
+ const lock=join(root,'data','proton-sync','running.lock');
+ writeFileSync(lock,JSON.stringify({pid:99999999,startedAt:'2026-10-05T00:00:00.000Z'}));
+ run('normal');assert.equal(existsSync(lock),false);assert.ok(readdirSync(dirname(lock)).some(name=>name.startsWith('running.lock.stale-')));
 });
