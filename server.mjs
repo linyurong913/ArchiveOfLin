@@ -90,7 +90,7 @@ const server=http.createServer(async(req,res)=>{
     if(url.pathname.startsWith('/files/'))return send(res,404,{error:'本站不提供文献下载，请使用条目的 Proton 分享链接。'});
     if(!['GET','HEAD'].includes(req.method))return send(res,405,{error:'不支持此操作。'});
     if(url.pathname.startsWith('/api/'))return send(res,404,{error:'接口不存在。'});
-    const relative=url.pathname==='/'?'index.html':url.pathname==='/admin'?'admin.html':url.pathname==='/login'?'login.html':decodeURIComponent(url.pathname).replace(/^\/+/, '');
+    const relative=url.pathname==='/'?'index.html':url.pathname==='/catalogue'?'catalogue.html':url.pathname==='/admin'?'admin.html':url.pathname==='/login'?'login.html':decodeURIComponent(url.pathname).replace(/^\/+/, '');
     if(relative.includes(':')||relative.includes('\0')||relative.split(/[\\/]/).some(part=>/[. ]$/.test(part)))return send(res,404,{error:'页面不存在。'});
     const path=resolve(publicRoot,relative);if(!path.startsWith(resolve(publicRoot)+ '/')&&!path.startsWith(resolve(publicRoot)+'\\'))return send(res,403,{error:'禁止访问。'});
     if(path.toLowerCase()===resolve(publicRoot,'admin.html').toLowerCase()&&!auth.session(req)){res.writeHead(303,{Location:'/login'});return res.end();}

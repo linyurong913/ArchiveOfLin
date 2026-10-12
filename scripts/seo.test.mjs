@@ -19,9 +19,9 @@ test('SEO export exposes crawlable published records, escapes metadata and exclu
   assert.ok(page.includes('https://drive.proton.me/urls/EXAMPLE#key'));
   assert.equal(JSON.parse(page.match(/application\/ld\+json">([^]*?)<\/script>/)[1]).name,item.title);
   const home=readFileSync(join(dir,'index.html'),'utf8');
-  assert.ok(home.includes(`href="${SITE}"`));assert.ok(home.includes('href="catalogue.html"'));
-  assert.ok(home.includes('href="documents/LB-00001.html"'));
-  const sitemap=readFileSync(join(dir,'sitemap.xml'),'utf8');assert.equal((sitemap.match(/<loc>/g)||[]).length,3);
+  assert.ok(home.includes('href="catalogue.html"'));
+  const archive=readFileSync(join(dir,'archive.html'),'utf8');assert.ok(archive.includes('href="documents/LB-00001.html"'));
+  const sitemap=readFileSync(join(dir,'sitemap.xml'),'utf8');assert.equal((sitemap.match(/<loc>/g)||[]).length,4);
   assert.ok(sitemap.includes(SITE+'documents/LB-00001.html'));assert.ok(!sitemap.includes('drive.proton.me'));
   assert.ok(!publicPaths(data).some(p=>/admin|sqlite|storage|proton-sync/.test(p)));
   assert.throws(()=>documentPath('../secret'));

@@ -5,7 +5,7 @@ import {openLibrary,exportCatalogue} from '../db.mjs';
 import {exportSeo} from './seo.mjs';
 const codeRoot=join(dirname(fileURLToPath(import.meta.url)),'..');const root=process.env.LIBRARY_ROOT||codeRoot;const db=openLibrary(root);
 const target=join(root,'dist');mkdirSync(target,{recursive:true});
-for(const name of ['index.html','style.css','app.js','search.mjs','favicon.svg','linbiao-white.svg','googlecafbab5c34e387e5.html'])copyFileSync(join(codeRoot,'public',name),join(target,name));
+for(const name of ['index.html','catalogue.html','style.css','home.js','app.js','search.mjs','favicon.svg','linbiao-white.svg','googlecafbab5c34e387e5.html'])copyFileSync(join(codeRoot,'public',name),join(target,name));
 mkdirSync(join(target,'vendor'),{recursive:true});for(const name of ['fuse.min.mjs','FUSE-LICENSE.txt'])copyFileSync(join(codeRoot,'public','vendor',name),join(target,'vendor',name));
 const data=exportCatalogue(db,join(target,'catalog.json'));
 exportSeo(target,data);
