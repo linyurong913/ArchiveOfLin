@@ -13,7 +13,7 @@ test('library persistence, publication boundaries, upload versions and request s
  t.after(async()=>{child.kill();await once(child,'exit').catch(()=>{});assert.equal(dirname(resolve(root)),resolve(tmpdir()));assert.ok(basename(root).startsWith('linban-test-'));rmSync(root,{recursive:true,force:true});});
  const url=await new Promise((resolve,reject)=>{let s='';child.stdout.on('data',c=>{s+=c;const match=/LIBRARY_READY (http:\/\/127\.0\.0\.1:\d+)/.exec(s);if(match)resolve(match[1]);});child.on('error',reject);child.once('exit',code=>reject(new Error('server exited '+code)));});
  let cookie='';const get=path=>fetch(url+path,{headers:cookie?{Cookie:cookie}:{}});const initial=await(await get('/api/catalog')).json();assert.equal(initial.items.length,28);assert.equal(initial.categories.length,14);
- for(const endpoint of ['session','catalog','history?id=LB-00001','sync'])assert.equal((await get('/api/admin/'+endpoint)).status,401);
+ for(const endpoint of ['session','catalog','history?id=LB-00001','proton-sync'])assert.equal((await get('/api/admin/'+endpoint)).status,401);
  for(const page of ['/admin','/admin.html','/%61dmin.html','/ADMIN.HTML']){const r=await fetch(url+page,{redirect:'manual'});assert.equal(r.status,303);assert.equal(r.headers.get('location'),'/login');}
  assert.equal((await get('/login')).status,200);
  for(const secret of ['/data/admin-auth.json','/data/admin-access-key.txt'])assert.equal((await get(secret)).status,404);
@@ -39,7 +39,8 @@ test('library persistence, publication boundaries, upload versions and request s
  r=await get('/files/'+file.id);assert.equal(r.status,404);
  r=await fetch(url+'/files/'+file.id,{headers:{Range:'bytes=0-4'}});assert.equal(r.status,404);
  const history=await(await get('/api/admin/history?id='+item.id)).json();assert.equal(history.length,3);assert.equal(JSON.parse(history[2].snapshot).title,'测试书目');
- const sync=await(await get('/api/admin/sync')).json();assert.equal(sync.connected,false);assert.equal(sync.jobs[0].state,'not_connected');
+ const sync=await(await get('/api/admin/proton-sync')).json();assert.equal(sync.configured,false);assert.equal(sync.running,false);
+ r=await fetch(url+'/api/admin/proton-sync',{method:'POST',headers});assert.equal(r.status,503);
  await post({id:item.id,status:'archived'});assert.equal((await get('/files/'+file.id)).status,404);
  assert.equal((await get('/data/library.sqlite')).status,404);
  assert.equal((await get('/admin')).status,200);

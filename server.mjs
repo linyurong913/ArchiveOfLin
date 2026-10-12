@@ -1,17 +1,46 @@
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { dirname,join,extname,resolve } from 'node:path';
-import { mkdirSync,statSync,createReadStream,createWriteStream,existsSync,unlinkSync } from 'node:fs';
+import { mkdirSync,statSync,createReadStream,createWriteStream,existsSync,unlinkSync,readFileSync } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import { Transform } from 'node:stream';
 import { randomUUID,createHash } from 'node:crypto';
+import { spawn } from 'node:child_process';
 import { openLibrary,catalogue,saveItem } from './db.mjs';
 import {createAdminAuth} from './auth.mjs';
-const root=process.env.LIBRARY_ROOT||dirname(fileURLToPath(import.meta.url));
-const publicRoot=join(dirname(fileURLToPath(import.meta.url)),'public');
+const codeRoot=dirname(fileURLToPath(import.meta.url));
+const root=process.env.LIBRARY_ROOT||codeRoot;
+const publicRoot=join(codeRoot,'public');
 const db=openLibrary(root);mkdirSync(join(root,'storage'),{recursive:true});
 const auth=createAdminAuth(root);
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml'};
+const syncConfigPath=join(root,'data','proton-sync','manual-sync.json');
+const syncState={running:false,started_at:null,finished_at:null,last_result:null};
+function manualSyncConfig(){
+  if(!existsSync(syncConfigPath))return {configured:false,message:'尚未配置 Proton 更新按钮。'};
+  try{
+    const config=JSON.parse(readFileSync(syncConfigPath,'utf8'));
+    if(!['nodePath','protonCliPath','gitHubCliPath'].every(key=>typeof config[key]==='string'&&config[key])||![config.nodePath,config.protonCliPath,config.gitHubCliPath].every(existsSync))return {configured:false,message:'Proton 更新按钮的本机程序路径无效。'};
+    if(config.proxyUrl){const proxy=new URL(config.proxyUrl);if(!['http:','https:'].includes(proxy.protocol))return {configured:false,message:'Proton 更新按钮的代理地址无效。'};}
+    return {configured:true,config};
+  }catch{return {configured:false,message:'Proton 更新按钮配置无效。'};}
+}
+function syncStatus(){const setup=manualSyncConfig();return {configured:setup.configured,running:syncState.running,started_at:syncState.started_at,finished_at:syncState.finished_at,last_result:syncState.last_result,message:setup.message};}
+function startManualSync(){
+  const setup=manualSyncConfig();if(!setup.configured)return {started:false,status:503,message:setup.message};
+  if(syncState.running)return {started:false,status:409,message:'更新正在进行，请稍候。'};
+  const {nodePath,protonCliPath,proxyUrl,gitHubCliPath}=setup.config;
+  const args=['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',join(codeRoot,'scripts','sync-and-publish.ps1'),'-NodePath',nodePath,'-ProtonCliPath',protonCliPath,'-GitHubCliPath',gitHubCliPath];
+  if(proxyUrl)args.push('-ProxyUrl',proxyUrl);
+  syncState.running=true;syncState.started_at=new Date().toISOString();syncState.finished_at=null;syncState.last_result=null;
+  let settled=false;const finish=(result)=>{if(settled)return;settled=true;syncState.running=false;syncState.finished_at=new Date().toISOString();syncState.last_result=result;};
+  try{
+    const child=spawn('powershell.exe',args,{cwd:codeRoot,windowsHide:true,stdio:'ignore'});
+    child.once('error',()=>finish('启动失败'));
+    child.once('exit',code=>finish(code===0?'已完成并发布':'失败；请查看本机同步日志'));
+  }catch{finish('启动失败');return {started:false,status:500,message:'无法启动 Proton 更新。'};}
+  return {started:true};
+}
 function send(res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));}
 async function readJson(req){let n=0;const chunks=[];for await(const c of req){n+=c.length;if(n>1024*1024)throw new Error('提交内容过大。');chunks.push(c);}return JSON.parse(Buffer.concat(chunks).toString('utf8'));}
 function serveFile(req,res,path,mime,extra={}){
@@ -53,7 +82,11 @@ const server=http.createServer(async(req,res)=>{
       const counter=new Transform({transform(chunk,enc,cb){bytes+=chunk.length;if(bytes>512*1024*1024)return cb(new Error('单个文件不能超过 512 MB。'));hash.update(chunk);cb(null,chunk);}});
       try{await pipeline(req,counter,createWriteStream(path));if(!bytes)throw new Error('不能上传空文件。');const sha=hash.digest('hex');const same=db.prepare('SELECT id FROM files WHERE item_id=? AND sha256=?').get(id,sha);if(same){unlinkSync(path);return send(res,200,{id:same.id,duplicate:true,message:'该文件已存在，无需重复保存。'});}const now=new Date().toISOString();db.exec('BEGIN');try{db.prepare('INSERT INTO files VALUES(?,?,?,?,?,?,?,?)').run(fileId,id,sha,storageKey,name,bytes,allow[ext],now);saveItem(db,{id});db.prepare('INSERT INTO sync_jobs VALUES(?,?,?,?,?,?)').run(randomUUID(),id,'upload','not_connected','文件已保存到本机；尚未连接 Proton 账户。',now);db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}return send(res,201,{id:fileId,sha256:sha,bytes,message:'文件已保存到本机，尚未上传 Proton。'});}catch(e){if(existsSync(path))unlinkSync(path);throw e;}
     }
-    if(url.pathname==='/api/admin/sync'&&req.method==='GET')return send(res,200,{connected:false,message:'共享链接不能提供账户级双向同步授权。',jobs:db.prepare('SELECT * FROM sync_jobs ORDER BY created_at DESC').all()});
+    if(url.pathname==='/api/admin/proton-sync'&&req.method==='GET')return send(res,200,syncStatus());
+    if(url.pathname==='/api/admin/proton-sync'&&req.method==='POST'){
+      const result=startManualSync();
+      return send(res,result.started?202:result.status,result.started?syncStatus():{error:result.message});
+    }
     if(url.pathname.startsWith('/files/'))return send(res,404,{error:'本站不提供文献下载，请使用条目的 Proton 分享链接。'});
     if(!['GET','HEAD'].includes(req.method))return send(res,405,{error:'不支持此操作。'});
     if(url.pathname.startsWith('/api/'))return send(res,404,{error:'接口不存在。'});

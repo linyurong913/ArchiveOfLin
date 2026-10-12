@@ -11,7 +11,7 @@
 5. 通过 GitHub API 把明确允许的静态资源、书目索引、站点地图及当前已发布文献页发布到 `gh-pages` 分支。原件、后台、SQLite、账户信息、授权凭据及同步状态均不发布。
 6. GitHub Pages 根据 `gh-pages` 分支更新网站。
 
-网站与同步程序独立：电脑关机后公网网站仍可访问，但新文件需等待电脑开机、用户登录且联网后才能更新。计划任务每 15 分钟尝试一次；执行中的任务不重叠。首次全库分享或每天的链接审计可能超过这个间隔。
+网站与同步程序独立：电脑关机后公网网站仍可访问，但新文件需等待电脑开机、用户登录且联网后，由管理员在本机后台点击“从 Proton 更新并发布”。执行中的更新不会重叠；首次全库分享或每天的链接审计可能需要较长时间。
 
 ## 授权与运行
 
@@ -27,11 +27,9 @@ powershell -NoProfile -File scripts/sync-and-publish.ps1 -NodePath 'C:\path\node
 
 若网络需要代理，可追加 `-ProxyUrl 'http://127.0.0.1:7897'`。不需要代理时省略。
 
-安装后台任务：使用相同参数运行 `scripts/install-sync-task.ps1`。任务名为 `ArchiveOfLin-ProtonSync`，只在当前用户登录期间运行，隐藏窗口，不要求存储 Windows 密码。
+配置后台按钮：使用相同参数运行 `scripts/configure-manual-sync.ps1`。它会把程序路径保存在已忽略的本机配置中，并复制 GitHub CLI 的主机配置；令牌仍由 Windows 凭据管理器管理，不复制明文令牌。更换 GitHub 账号后重新运行此配置脚本。可用 `-GitHubCliPath 'C:\path\gh.exe'` 指定程序路径。
 
-安装程序会把 GitHub CLI 的主机配置复制到已忽略的 `data/proton-sync/github/`，使后台任务不依赖交互会话的 AppData 路径；令牌仍从当前用户的 Windows 凭据管理器读取，不复制明文令牌。更换 GitHub 账号后重新安装任务。可用 `-GitHubCliPath 'C:\path\gh.exe'` 指定程序路径。
-
-暂停或移除（不会删除 Proton 文件）：
+若之前安装过自动任务，可停用或移除（不会删除 Proton 文件）：
 
 ```powershell
 Disable-ScheduledTask -TaskName 'ArchiveOfLin-ProtonSync'
