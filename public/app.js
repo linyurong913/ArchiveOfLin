@@ -16,7 +16,8 @@ function updateLocation(){const u=new URL(location.href);for(const [key,val]of O
 function setCategory(id){state.category=id;state.view='items';state.page=1;render();}
 function render(){
   const list=filtered(),cats=state.data.categories;$('heading').textContent=categoryName();
-  $('intro').textContent=state.category?'保留目录来源，查阅原文与版本。':`${state.data.items.length} 份已编目资料 · ${cats.length} 个原始分类`;
+  const updated=state.data.meta.synced_at?new Date(state.data.meta.synced_at).toLocaleString('zh-CN'):state.data.meta.captured_on;
+  $('intro').textContent=state.category?'保留目录来源，查阅原文与版本。':`目录更新时间：${updated}。网站更新可能有延迟。`;
   $('category-count').textContent=String(cats.length);$('all-count').textContent=state.data.items.length;
   $('all-category').classList.toggle('active',!state.category);
   $('categories').innerHTML=cats.map(c=>{const n=state.data.items.filter(i=>i.category_id===c.id).length;return `<button class="category ${state.category===c.id?'active':''}" data-category="${esc(c.id)}"><span class="category-name">${esc(c.name)}</span><span>${n||'待编目'}</span></button>`;}).join('');
