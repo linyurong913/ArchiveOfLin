@@ -12,3 +12,23 @@ async function init(){
   }catch{}
 }
 init();
+// Keep the landing page's sticky motto in step with the catalogue page.
+const topbar=document.querySelector('.topbar');
+const measureTopbar=()=>document.documentElement.style.setProperty('--topbar-height',topbar.getBoundingClientRect().height+'px');
+new ResizeObserver(measureTopbar).observe(topbar);measureTopbar();
+const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+let scrollFrame=0,mottoProgress=Math.min(1,Math.max(0,window.scrollY)/240),lastMottoFrame=0;
+function updateMotto(time){
+  const target=Math.min(1,Math.max(0,window.scrollY)/240);
+  const elapsed=lastMottoFrame?Math.min(64,time-lastMottoFrame):16;
+  lastMottoFrame=time;
+  mottoProgress=reducedMotion.matches?target:mottoProgress+(target-mottoProgress)*(1-Math.exp(-elapsed/85));
+  if(Math.abs(target-mottoProgress)<.0005)mottoProgress=target;
+  document.documentElement.style.setProperty('--motto-progress',String(mottoProgress));
+  if(mottoProgress!==target)scrollFrame=requestAnimationFrame(updateMotto);
+  else{scrollFrame=0;lastMottoFrame=0;}
+}
+function requestMottoUpdate(){if(!scrollFrame)scrollFrame=requestAnimationFrame(updateMotto);}
+window.addEventListener('scroll',requestMottoUpdate,{passive:true});
+reducedMotion.addEventListener('change',requestMottoUpdate);
+requestMottoUpdate();
