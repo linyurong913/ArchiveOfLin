@@ -28,7 +28,7 @@ test('library persistence, publication boundaries, upload versions and request s
  const hostileHostStatus=await new Promise((resolve,reject)=>{const req=http.get(url+'/api/catalog',{headers:{Host:'attacker.example'}},res=>{res.resume();resolve(res.statusCode);});req.on('error',reject);});assert.equal(hostileHostStatus,403);
  const post=body=>fetch(url+'/api/admin/items',{method:'POST',headers,body:JSON.stringify(body)});
  r=await post({title:'测试书目',status:'draft',proton_url:'javascript:alert(1)'});assert.equal(r.status,400);
- r=await post({title:'测试书目',status:'draft',format:'TXT'});assert.equal(r.status,200);const item=await r.json();assert.equal(item.revision,1);
+ r=await post({title:'测试书目',status:'draft',format:'TXT'});assert.equal(r.status,200);const item=await r.json();assert.equal(item.id,'LB-00029');assert.equal(item.revision,1);
  assert.ok(!(await(await get('/api/catalog')).json()).items.some(i=>i.id===item.id));
  const upload=()=>fetch(url+'/api/admin/upload?id='+item.id+'&name='+encodeURIComponent('测试.txt'),{method:'POST',headers:{Origin:url,Cookie:cookie,'X-Library-Token':session.token,'Content-Type':'application/octet-stream'},body:'hello archive'});
  r=await upload();assert.equal(r.status,201);const file=await r.json();assert.equal(file.sha256.length,64);

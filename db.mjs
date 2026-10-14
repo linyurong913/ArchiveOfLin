@@ -19,16 +19,25 @@ export function openLibrary(root) {
     try {
       for(const c of seed.categories) db.prepare('INSERT INTO categories VALUES(?,?,?)').run(c.id,c.name,c.coverage);
       for(const [key,value] of Object.entries(seed.meta)) db.prepare('INSERT INTO meta VALUES(?,?)').run(key,JSON.stringify(value));
-      for(const item of seed.items) saveItem(db,item);
+      for(const item of seed.items) saveItem(db,item,{preserveId:true});
       db.prepare('INSERT INTO meta VALUES(?,?)').run('seeded','true');
       db.exec('COMMIT');
     } catch(e){db.exec('ROLLBACK');throw e;}
   }
   return db;
 }
-export function saveItem(db,input) {
-  const id=input.id || 'LB-'+randomUUID().slice(0,8).toUpperCase();
-  const old=db.prepare('SELECT * FROM items WHERE id=?').get(id);
+export function nextCatalogueId(db) {
+  const ids=db.prepare("SELECT id FROM items WHERE id GLOB 'LB-[0-9]*'").all();
+  const maximum=ids.reduce((max,{id})=>{
+    const match=/^LB-(\d+)$/.exec(id);
+    return match?Math.max(max,Number(match[1])):max;
+  },0);
+  return `LB-${String(maximum+1).padStart(5,'0')}`;
+}
+export function saveItem(db,input,{preserveId=false}={}) {
+  const requestedId=typeof input.id==='string'?input.id:'';
+  const old=requestedId?db.prepare('SELECT * FROM items WHERE id=?').get(requestedId):null;
+  const id=old?.id||(preserveId&&requestedId?requestedId:nextCatalogueId(db));
   const now=new Date().toISOString();
   const defaults={title:'',author:'',year:'',category_id:null,source_path:'',original_name:'',format:'',size_label:'',description:'',proton_url:'',link_scope:'folder',status:'draft',metadata_basis:'manual'};
   const row={...defaults,...old};

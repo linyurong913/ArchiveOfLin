@@ -6,7 +6,7 @@ import {readFileSync,writeFileSync,existsSync,mkdirSync,openSync,closeSync,unlin
 import {resolve,join,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
-import {openLibrary,saveItem} from '../db.mjs';
+import {openLibrary,saveItem,nextCatalogueId} from '../db.mjs';
 
 const codeRoot=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const root=process.env.LIBRARY_ROOT||codeRoot;
@@ -106,7 +106,9 @@ try{
     }
     let category=categories.find(c=>c.name===f.parts[0]);
     if(f.parts.length&&!category){category={id:'p'+createHash('sha256').update(f.parts[0]).digest('hex').slice(0,10),name:f.parts[0]};db.prepare('INSERT OR IGNORE INTO categories(id,name,coverage) VALUES(?,?,?)').run(category.id,category.name,'complete');categories.push(category);}
-    const id=item?.id||'LB-P'+createHash('sha256').update(f.uid).digest('hex').slice(0,16).toUpperCase();
+    // A newly discovered file receives the next permanent catalogue number.
+    // Existing Proton node mappings retain their assigned number on every sync.
+    const id=item?.id||nextCatalogueId(db);
     const ext=/\.([a-z0-9]+)$/i.exec(f.name)?.[1]?.toUpperCase()||'FILE';
     const update={id,title:item?.title||f.name.replace(/\.[a-z0-9]+$/i,''),original_name:f.name,category_id:category?.id||null,source_path:['林办档案馆',...f.parts,f.name].join(' / '),format:ext,size_label:Number.isFinite(f.bytes)?`${(f.bytes/1000000).toFixed(2)} MB`:'',proton_url:url,link_scope:'file',status:item?.status==='draft'?'draft':'published',metadata_basis:item?.metadata_basis||'filename'};
     // Preserve manually archived records; disappearance archives only sync-owned records.
