@@ -3,7 +3,7 @@ const safeUrl=value=>{try{const url=new URL(value);return url.protocol==='https:
 async function init(){
   try{
     let response=await fetch('/api/catalog');
-    if(!response.ok||!(response.headers.get('content-type')||'').includes('application/json'))response=await fetch('./catalog.json');
+    if(!response.ok||!(response.headers.get('content-type')||'').includes('application/json'))response=await fetch(`./catalog.json?v=${Date.now()}`,{cache:'no-store'});
     if(!response.ok)throw new Error('目录未载入');
     const data=await response.json();
     $('item-count').textContent=String(data.items.length);$('category-count').textContent=String(data.categories.length);
